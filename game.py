@@ -1,16 +1,38 @@
 import pygame
 import random
-import time
 
+# The shapes of the pieces & rotations as coordinates on a 4x4 grid. Taken from:
+# https://levelup.gitconnected.com/writing-tetris-in-python-2a16bddb5318
+# because my initial approach was super inefficient.
+shapes = {
+    "I": [[0, 4, 8, 12], [0, 1, 2, 3]],
+    "J": [[1, 5, 8, 9], [0, 4, 5, 6], [0, 1, 4, 8], [4, 5, 6, 10]],
+    "L": [[0, 4, 8, 9], [4, 5, 6, 8], [0, 1, 5, 9], [4, 5, 6, 2]],
+    "O": [[0, 1, 4, 5]],
+    "S": [[4, 5, 1, 2], [0, 4, 5, 9]],
+    "T": [[1, 4, 5, 6], [1, 5, 6, 9], [4, 5, 6, 9], [1, 4, 5, 9]],
+    "Z": [[0, 1, 5, 6], [1, 4, 5, 8]]
+}
+
+# The colors of the pieces (R, G, B)
+colors = {
+    "I": (0, 175, 175),
+    "J": (0, 0, 255),
+    "L": (255, 80, 0),
+    "O": (255, 255, 0),
+    "S": (0, 255, 0),
+    "T": (230, 230, 250),
+    "Z": (255, 0, 0)
+}
 
 class Board:
     def __init__(self):
         self.bag = default_bag()
         self.active_piece = self.pull_piece()
-        self.grid = [["" for x in range(10)] for y in range(20)]
+        self.grid = [["" for _ in range(10)] for _ in range(20)]
         self.held_piece = None
         self.score = 0
-        self.default_location = (5, 0)
+        self.default_location = (0, 0)
         self.piece_location = self.default_location
 
     def pull_piece(self):
@@ -32,123 +54,88 @@ class Board:
             self.active_piece = self.pull_piece()
             self.piece_location = self.default_location
 
+    # Pass a value of 'check' into this function in order to check a piece's position
+    # against the walls (usually after rotating)
     def move_piece(self, direction):
         temp = self.piece_location
 
+        offset_right = max(list(map(lambda x: x % 4, self.active_piece.rotation)))
+        offset_left = min(list(map(lambda x: x % 4, self.active_piece.rotation)))
+        piece_x = self.piece_location[0]
+
+        start = 0
+        end = 7
+
         if direction == "Right":
-            if self.piece_location[0] + self.active_piece.offset_right < 9:
+            if piece_x + offset_right <= end:
                 self.piece_location = (temp[0] + 1, temp[1])
+
         elif direction == "Left":
-            if self.piece_location[0] + self.active_piece.offset_left > 0:
+            if piece_x + offset_left >= start:
                 self.piece_location = (temp[0] - 1, temp[1])
+
+        elif direction == "Check":
+            # Hard-Coding an edgecase for the "I" piece becaue it was being difficult
+            if piece_x + offset_right > end + 1:
+                if self.active_piece.shape != "I":
+                    self.piece_location = (temp[0] - offset_right + 1, temp[1])
+                else:
+                    self.piece_location = (temp[0] - offset_right, temp[1])
+
         else:
             return
 
+    def rotate_piece(self, direction):
+        if direction == "Right":
+            self.active_piece.rotate(1)
+        elif direction == "Left":
+            self.active_piece.rotate(-1)
+
+        self.move_piece("Check")
+
+
+
     def hard_drop(self):
         pass
+        # for i1, x in enumerate(self.grid):
+        #     for i2, y in enumerate(x):
+        #         pass
+
+
 
 
 class Piece:
     def __init__(self, shape):
         self.shape = shape
-        self.rotation = 0
-
-        match self.shape:
-            case "I":
-                self.offset_right = 0
-                self.offset_left = 0
-                self.offset_down = 3
-            case "J":
-                self.offset_right = 0
-                self.offset_left = -1
-                self.offset_down = 2
-            case "L":
-                self.offset_right = 1
-                self.offset_left = 0
-                self.offset_down = 2
-            case "O":
-                self.offset_right = 1
-                self.offset_left = 0
-                self.offset_down = 1
-            case "S":
-                self.offset_right = 1
-                self.offset_left = -1
-                self.offset_down = 1
-            case "Z":
-                self.offset_right = 1
-                self.offset_left = -1
-                self.offset_down = 1
-            case "T":
-                self.offset_right = 1
-                self.offset_left = -1
-                self.offset_down = 1
+        self.angle = 0
+        self.rotation = shapes[self.shape][self.angle]
 
     def draw(self, location):
         global screen
 
-        if self.shape == "I":
-            rect = pygame.Rect(300 + (location[0] * 40), 100 + (location[1] * 40), 40, 41)
-            rect2 = pygame.Rect(300 + (location[0] * 40), 140 + (location[1] * 40), 40, 41)
-            rect3 = pygame.Rect(300 + (location[0] * 40), 180 + (location[1] * 40), 40, 41)
-            rect4 = pygame.Rect(300 + (location[0] * 40), 220 + (location[1] * 40), 40, 41)
-            pygame.draw.rect(screen, (0, 150, 175), rect)
-            pygame.draw.rect(screen, (0, 150, 175), rect2)
-            pygame.draw.rect(screen, (0, 150, 175), rect3)
-            pygame.draw.rect(screen, (0, 150, 175), rect4)
-        elif self.shape == "J":
-            rect = pygame.Rect(300 + (location[0] * 40), 100 + (location[1] * 40), 40, 41)
-            rect2 = pygame.Rect(300 + (location[0] * 40), 140 + (location[1] * 40), 40, 41)
-            rect3 = pygame.Rect(300 + (location[0] * 40), 180 + (location[1] * 40), 40, 41)
-            rect4 = pygame.Rect(300 + (location[0] * 40 - 40), 180 + (location[1] * 40), 40, 41)
-            pygame.draw.rect(screen, (0, 0, 255), rect)
-            pygame.draw.rect(screen, (0, 0, 255), rect2)
-            pygame.draw.rect(screen, (0, 0, 255), rect3)
-            pygame.draw.rect(screen, (0, 0, 255), rect4)
-        elif self.shape == "L":
-            rect = pygame.Rect(300 + (location[0] * 40), 100 + (location[1] * 40), 40, 41)
-            rect2 = pygame.Rect(300 + (location[0] * 40), 140 + (location[1] * 40), 40, 41)
-            rect3 = pygame.Rect(300 + (location[0] * 40), 180 + (location[1] * 40), 40, 41)
-            rect4 = pygame.Rect(300 + (location[0] * 40 + 40), 180 + (location[1] * 40), 40, 41)
-            pygame.draw.rect(screen, (236, 88, 0), rect)
-            pygame.draw.rect(screen, (236, 88, 0), rect2)
-            pygame.draw.rect(screen, (236, 88, 0), rect3)
-            pygame.draw.rect(screen, (236, 88, 0), rect4)
-        elif self.shape == "O":
-            rect = pygame.Rect(300 + (location[0] * 40), 100 + (location[1] * 40), 40, 41)
-            rect2 = pygame.Rect(300 + (location[0] * 40), 140 + (location[1] * 40), 40, 41)
-            rect3 = pygame.Rect(300 + (location[0] * 40), 180 + (location[1] * 40), 40, 41)
-            rect4 = pygame.Rect(300 + (location[0] * 40 + 40), 180 + (location[1] * 40), 40, 41)
-            pygame.draw.rect(screen, (236, 88, 0), rect)
-            pygame.draw.rect(screen, (236, 88, 0), rect2)
-            pygame.draw.rect(screen, (236, 88, 0), rect3)
-            pygame.draw.rect(screen, (236, 88, 0), rect4)
-        elif self.shape == "S":
-            rect = pygame.Rect(300 + (location[0] * 40), 100 + (location[1] * 40), 40, 41)
-            rect2 = pygame.Rect(300 + (location[0] * 40), 140 + (location[1] * 40), 40, 41)
-            rect3 = pygame.Rect(340 + (location[0] * 40), 100 + (location[1] * 40), 40, 41)
-            rect4 = pygame.Rect(260 + (location[0] * 40), 140 + (location[1] * 40), 40, 41)
-            pygame.draw.rect(screen, (0, 255, 0), rect)
-            pygame.draw.rect(screen, (0, 255, 0), rect2)
-            pygame.draw.rect(screen, (0, 255, 0), rect3)
-            pygame.draw.rect(screen, (0, 255, 0), rect4)
-        elif self.shape == "T":
-            rect = pygame.Rect(300 + (location[0] * 40), 100 + (location[1] * 40), 40, 41)
-            rect2 = pygame.Rect(300 + (location[0] * 40), 140 + (location[1] * 40), 40, 41)
-            rect3 = pygame.Rect(260 + (location[0] * 40), 100 + (location[1] * 40), 40, 41)
-            rect4 = pygame.Rect(340 + (location[0] * 40), 140 + (location[1] * 40), 40, 41)
-            pygame.draw.rect(screen, (255, 0, 0), rect)
-            pygame.draw.rect(screen, (255, 0, 0), rect2)
-            pygame.draw.rect(screen, (255, 0, 0), rect3)
-            pygame.draw.rect(screen, (255, 0, 0), rect4)
-        elif self.shape == "Z":
-            rect = pygame.Rect(300 + (location[0] * 40), 100 + (location[1] * 40), 40, 41)
-            rect2 = pygame.Rect(340 + (location[0] * 40), 100 + (location[1] * 40), 40, 41)
-            rect3 = pygame.Rect(260 + (location[0] * 40), 100 + (location[1] * 40), 40, 41)
-            rect4 = pygame.Rect(300 + (location[0] * 40), 140 + (location[1] * 40), 40, 41)
-            pygame.draw.rect(screen, (138, 43, 226), rect)
-            pygame.draw.rect(screen, (138, 43, 226), rect2)
-            pygame.draw.rect(screen, (138, 43, 226), rect3)
-            pygame.draw.rect(screen, (138, 43, 226), rect4)
+        mat = self.rotation
+
+        for i in range(4):
+            x = 0
+            y = 0
+            offset = 40
+            dims = (40, 40)
+            temp = mat[i]
+
+            # Get the X, Y to draw our rect at
+            while temp >= 4:
+                temp -= 4
+                y += 1
+            x = temp + 1
+            y += 1
+
+            r = pygame.Rect((location[0] * 40 + x * 40 + 300, location[1] * 40 + y * 40 + 100), dims)
+            pygame.draw.rect(screen, colors[self.shape], r)
+
+    def rotate(self, amnt):
+        if self.shape != "O":
+            self.angle += amnt
+            self.rotation = shapes[self.shape][self.angle % len(shapes[self.shape])]
 
 
 def default_bag():
@@ -182,7 +169,7 @@ board = Board()
 
 pygame.init()
 
-size = (1000, 1000)
+size = (1000, 800)
 icon = pygame.image.load('./Assets/icon.png')
 last_input = 0
 
@@ -192,20 +179,29 @@ screen = pygame.display.set_mode(size)
 
 while True:
     for event in pygame.event.get():
+
         if event.type == pygame.QUIT:
             exit()
+
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_LEFT:
                 board.move_piece("Left")
             elif event.key == pygame.K_RIGHT:
                 board.move_piece("Right")
+
             elif event.key == pygame.K_SPACE:
                 board.hold()
-            elif event.key == pygame.K_C:
+
+            elif event.key == pygame.K_x:
+                board.rotate_piece("Right")
+            elif event.key == pygame.K_z:
+                board.rotate_piece("Left")
+
+            elif event.key == pygame.K_c:
                 board.hard_drop()
 
     screen.fill((128, 128, 128))
     board.active_piece.draw(board.piece_location)
     draw_grid(screen)
 
-    pygame.display.flip()
+    pygame.display.update()
