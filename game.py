@@ -1,10 +1,11 @@
 import pygame
 import random
+import math
 
 # The shapes of the pieces & rotations as coordinates on a 4x4 grid. Taken from:
 # https://levelup.gitconnected.com/writing-tetris-in-python-2a16bddb5318
 # because my initial approach was super inefficient.
-shapes = {
+SHAPES = {
     "I": [[0, 4, 8, 12], [0, 1, 2, 3]],
     "J": [[1, 5, 8, 9], [0, 4, 5, 6], [0, 1, 4, 8], [4, 5, 6, 10]],
     "L": [[0, 4, 8, 9], [4, 5, 6, 8], [0, 1, 5, 9], [4, 5, 6, 2]],
@@ -15,7 +16,7 @@ shapes = {
 }
 
 # The colors of the pieces (R, G, B)
-colors = {
+COLORS = {
     "I": (0, 175, 175),
     "J": (0, 0, 255),
     "L": (255, 80, 0),
@@ -25,17 +26,19 @@ colors = {
     "Z": (255, 0, 0)
 }
 
+
 class Board:
     def __init__(self):
+        self.DEFAULT_LOCATION = (3, 0)
+        
         self.bag = default_bag()
-        self.active_piece = self.pull_piece()
+        self.active_piece = self.pull_new_piece()
         self.grid = [["" for _ in range(10)] for _ in range(20)]
         self.held_piece = None
         self.score = 0
-        self.default_location = (0, 0)
-        self.piece_location = self.default_location
+        self.piece_location = self.DEFAULT_LOCATION
 
-    def pull_piece(self):
+    def pull_new_piece(self):
         if not self.bag:
             self.bag = default_bag()
 
@@ -48,21 +51,23 @@ class Board:
             temp = self.active_piece
             self.active_piece = self.held_piece
             self.held_piece = temp
-            self.piece_location = self.default_location
+            self.piece_location = self.DEFAULT_LOCATION
         else:
             self.held_piece = self.active_piece
-            self.active_piece = self.pull_piece()
-            self.piece_location = self.default_location
+            self.active_piece = self.pull_new_piece()
+            self.piece_location = self.DEFAULT_LOCATION
 
     # Pass a value of 'check' into this function in order to check a piece's position
     # against the walls (usually after rotating)
     def move_piece(self, direction):
         temp = self.piece_location
 
+        # The offsets entail how far the shape portrudes from its center on the 4x4 grid.
         offset_right = max(list(map(lambda x: x % 4, self.active_piece.rotation)))
         offset_left = min(list(map(lambda x: x % 4, self.active_piece.rotation)))
         piece_x = self.piece_location[0]
 
+        # Grid Size constants
         start = 0
         end = 7
 
@@ -93,22 +98,45 @@ class Board:
 
         self.move_piece("Check")
 
-
-
     def hard_drop(self):
-        pass
-        # for i1, x in enumerate(self.grid):
-        #     for i2, y in enumerate(x):
-        #         pass
-
-
+        # Likely the worst piece of spaghetti code I've ever written
+        
+        offset_right = max(list(map(lambda x: x % 4, self.active_piece.rotation)))
+        piece_x = self.piece_location[0]
+        MIN_PIECE_HEIGHT = 2
+        
+        safe_y = 0
+        
+        # Overlays the piece's 4x4 grid at each height in the board, checking for a collision
+        for ix in range(MIN_PIECE_HEIGHT, len(self.grid)):
+            no_collisions = True
+            
+            for iy in range(self.piece_location[0], self.piece_location[0] + offset_right):
+                for y in range(4):
+                    for x in range(4):
+                        if (4 * y) + x not in self.active_piece.rotation:
+                            if self.grid[iy + (4 - y)][piece_x + x] != "":
+                                no_collisions = False
+                                break
+                                
+                            safe_y = iy
+            
+            if no_collisions:
+                piece = self.active_piece.shape
+                coords = self.active_piece.rotation
+                
+                for y in range(4):
+                    for x in range(4):
+                        if (4 * y) + x in coords:
+                            self.grid[safe_y + (4 - y)][self.piece_location[0] + x] = piece
+                break
 
 
 class Piece:
     def __init__(self, shape):
         self.shape = shape
         self.angle = 0
-        self.rotation = shapes[self.shape][self.angle]
+        self.rotation = SHAPES[self.shape][self.angle]
 
     def draw(self, location):
         global screen
@@ -116,9 +144,7 @@ class Piece:
         mat = self.rotation
 
         for i in range(4):
-            x = 0
             y = 0
-            offset = 40
             dims = (40, 40)
             temp = mat[i]
 
@@ -128,14 +154,13 @@ class Piece:
                 y += 1
             x = temp + 1
             y += 1
-
             r = pygame.Rect((location[0] * 40 + x * 40 + 300, location[1] * 40 + y * 40 + 100), dims)
-            pygame.draw.rect(screen, colors[self.shape], r)
+            pygame.draw.rect(screen, COLORS[self.shape], r)
 
     def rotate(self, amnt):
         if self.shape != "O":
             self.angle += amnt
-            self.rotation = shapes[self.shape][self.angle % len(shapes[self.shape])]
+            self.rotation = SHAPES[self.shape][self.angle % len(SHAPES[self.shape])]
 
 
 def default_bag():
